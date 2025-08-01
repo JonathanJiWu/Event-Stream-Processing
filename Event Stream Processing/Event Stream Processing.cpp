@@ -60,15 +60,20 @@ void PrintEvents(const std::vector<SimulationEvent>& events)
     std::cout << std::endl << "----------------------------------------" << std::endl;
 }
 
+// ** TASKS **
 //1. Sort Events by Timestamp
 void static SortEventsByTime(std::vector<SimulationEvent>& events)// Key STL concept: sort with a projection.
 {
+    std::cout << "SortEventsByTime, in-place" << "\n";
+
     std::ranges::sort(events, {}, &SimulationEvent::timestampSec);//Sort events in ascending order using the value of timestampSec for comparison
 	PrintEvents(events);//NOTE: ranges::sort() is in-place
 }
 
 void static SortEventsByTime(const std::vector<SimulationEvent>& events, bool isAscending = true)//is this const a legal overload?
 {
+    std::cout << "SortEventsByTime, value" << "\n";
+
     std::vector<SimulationEvent> sortedByTimeEvents{ events };
     if (isAscending)
     {
@@ -80,6 +85,7 @@ void static SortEventsByTime(const std::vector<SimulationEvent>& events, bool is
     }
     PrintEvents(sortedByTimeEvents);//NOTE: ranges::sort() is in-place
 }
+
 // Explanation:
 // - std::ranges::sort is part of the new C++20 ranges library.
 // - It allows a "projection" function (the 3rd argument here), which is like saying:
@@ -87,24 +93,42 @@ void static SortEventsByTime(const std::vector<SimulationEvent>& events, bool is
 // - Equivalent to writing a lambda: [](const auto& a, const auto& b) { return a.timestamp < b.timestamp; }
 // - But using `&SimulationEvent::timestamp` is more concise, idiomatic, and efficient.
 
+// ** QUESTIONS **
+//1. what does discrete means in "discrete simulation events"?
+//  => evolves in steps, not continuously, only log when something actually happens
+//2. std::ranges::sort(events, {}, &SimulationEvent::timestampSec); => what is the {} for?,  and what does 3rd argument called "projection" mean? shouldn't it mean comparison?
+//  => {} means empty which means default comparator, which is "<" aka "less than" which means sort in ascending order
+//3. is ranges::sort() in place? as in does it change the origianal data? what if the original data should not be changed?
+//  => yes, in-place, Make a copy first if don't want change
+
 
 //2. Filter Events by Type
-std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>&events, EventType typeToFilter)
+std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& events, EventType typeToFilter)
 {
-    // Key idea: Use ranges::views::filter to create a lazy-filtered range
-    // Then convert it into a new vector using ranges::to (in <ranges> in C++23,
-    // or just use std::copy for C++20 fallback)
+    std::cout << "FilterByType" << "\n";
 
-    std::vector<SimulationEvent> filtered;
+    std::vector<SimulationEvent> filtered{};
 
-    // Copy elements where the event type matches
-    std::ranges::copy_if(events, std::back_inserter(filtered),
-        [typeToFilter](const SimulationEvent& ev) {
-            return ev.type == typeToFilter;
-        });
+    std::ranges::copy_if
+    (
+        events, 
+        std::back_inserter(filtered), //(source, output, predicate), predicate is a lambda, a condition
+        [typeToFilter](const SimulationEvent& ev)//Copy elements from events into filtered
+        {
+            return ev.type == typeToFilter; // but only if their type == typeToFilter.
+        }
+    );//last arg: lambda predicate; captures typeToFilter by value
+
     PrintEvents(filtered);
     return filtered;
 }
+
+// Key idea: Use ranges::views::filter to create a lazy-filtered range
+// Then convert it into a new vector using ranges::to (in <ranges> in C++23,
+// or just use std::copy for C++20 fallback)
+
+// ** QUESTIONS **
+//1. std::ranges::copy_if()'s argument are crazy, can you break everything down? so much going on
 
 //3. Group Events by Source
 //Return a std::unordered_map<std::string, std::vector<SimulationEvent>> where each key is the source name.
@@ -161,7 +185,8 @@ int main()
 	PrintEvents(events);
 
 	SortEventsByTime(events, false);
-	///FilterByType(events, EventType::SENSOR_READING);    
+	SortEventsByTime(events);
+	FilterByType(events, EventType::SENSOR_READING);    
     std::cout << "Hello Simulated World!\n";
 }
 
@@ -170,11 +195,3 @@ int main()
 //Use structured bindings, lambda captures, and auto effectively.
 //Avoid manual loops; prefer std::ranges::views::filter, transform, group_by, etc.
 //Brush up on std::unordered_map, std::optional, and iterator utilities.
-
-// ** QUESTIONS **
-//1. what does discrete means in "discrete simulation events"?
-//  => evolves in steps, not continuously, only log when something actually happens
-//2. std::ranges::sort(events, {}, &SimulationEvent::timestampSec); => what is the {} for?,  and what does 3rd argument called "projection" mean? shouldn't it mean comparison?
-//  => {} means empty which means default comparator, which is "<" aka "less than" which means sort in ascending order
-//3. is ranges::sort() in place? as in does it change the origianal data? what if the original data should not be changed?
-//  => yes, in-place, Make a copy first if don't want change
