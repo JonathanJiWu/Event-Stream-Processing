@@ -62,7 +62,7 @@ void PrintEvents(const std::vector<SimulationEvent>& events)
 
 // ** TASKS **
 //1. Sort Events by Timestamp
-void static SortEventsByTime(std::vector<SimulationEvent>& events)// Key STL concept: sort with a projection.
+void SortEventsByTime(std::vector<SimulationEvent>& events)// Key STL concept: sort with a projection.
 {
     std::cout << "SortEventsByTime, in-place" << "\n";
 
@@ -70,7 +70,7 @@ void static SortEventsByTime(std::vector<SimulationEvent>& events)// Key STL con
 	PrintEvents(events);//NOTE: ranges::sort() is in-place
 }
 
-void static SortEventsByTime(const std::vector<SimulationEvent>& events, bool isAscending = true)//is this const a legal overload?
+void SortEventsByTime(const std::vector<SimulationEvent>& events, bool isAscending = true)//is this const a legal overload?
 {
     std::cout << "SortEventsByTime, value" << "\n";
 
@@ -113,7 +113,7 @@ std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& ev
     (
         events, 
         std::back_inserter(filtered), //(source, output, predicate), predicate is a lambda, a condition
-        [typeToFilter](const SimulationEvent& ev)//Copy elements from events into filtered
+        [typeToFilter](const SimulationEvent& ev)//have to capture the value of typeToFilter because lambda are saperate scope like a differernt function, not a normal codeblock; Copy elements from events into filtered
         {
             return ev.type == typeToFilter; // but only if their type == typeToFilter.
         }
@@ -122,13 +122,15 @@ std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& ev
     PrintEvents(filtered);
     return filtered;
 }
-
 // Key idea: Use ranges::views::filter to create a lazy-filtered range
 // Then convert it into a new vector using ranges::to (in <ranges> in C++23,
 // or just use std::copy for C++20 fallback)
 
 // ** QUESTIONS **
 //1. std::ranges::copy_if()'s argument are crazy, can you break everything down? so much going on
+// => (source, output iteritor, lambda predicate)
+//2. why is type's value needs to be captured? doesn't it live inside copy_if()? which is inside the bigger function scope which should have access to the argument of the bigger function which have type already? how can I conceptulize lambda's scope and access?
+// => lambdas are separate function objects, not regular code blocks.
 
 //3. Group Events by Source
 //Return a std::unordered_map<std::string, std::vector<SimulationEvent>> where each key is the source name.
@@ -184,9 +186,10 @@ int main()
     event.ConstructMockingSimulationEventVector(events);
 	PrintEvents(events);
 
-	SortEventsByTime(events, false);
-	SortEventsByTime(events);
-	FilterByType(events, EventType::SENSOR_READING);    
+	//SortEventsByTime(events, false);
+	//SortEventsByTime(events);
+	//FilterByType(events, EventType::SENSOR_READING);    
+    //SortByTime(events);
     std::cout << "Hello Simulated World!\n";
 }
 
