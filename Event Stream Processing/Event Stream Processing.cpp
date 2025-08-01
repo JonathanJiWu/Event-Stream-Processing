@@ -134,33 +134,29 @@ std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& ev
 
 //3. Group Events by Source
 //Return a std::unordered_map<std::string, std::vector<SimulationEvent>> where each key is the source name.
-std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(
-    const std::vector<SimulationEvent>& events)
+std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(const std::vector<SimulationEvent>& events)
 {
-    // We want to group all events that came from the same source string.
-    // A map from string (source) to vector of events is the natural structure.
-
-    std::unordered_map<std::string, std::vector<SimulationEvent>> grouped;
-
-    for (const auto& ev : events) {
-        grouped[ev.source].push_back(ev);
+    //1. loop through, 
+    //2. add into Grouped in order
+    std::unordered_map<std::string, std::vector<SimulationEvent>> GroupedBySource{};//{ key: "source", value: {event0, event1, event2 }
+    for (const SimulationEvent& event : events)
+    {
+            GroupedBySource[event.source].push_back(event);//[] operator is overloaded, it'll add new key and new values if not exist yet => side effect: if look up with [] it will add the key, use .find() instead
     }
-
-    // No fancy STL here: sometimes a plain loop is the cleanest and fastest.
-    return grouped;
+    return GroupedBySource;
 }
+// We want to group all events that came from the same source string.
+// A map from string (source) to vector of events is the natural structure.
 
-//4. Compute Total Value for a Given Source
-//Return the sum of.value for a specific source.
-double SumValuesForSource(
-    const std::vector<SimulationEvent>& events,
-    const std::string& sourceToMatch)
+//4. Compute Total Value for a Given Source, Return the sum of.value for a specific source.
+double ComputeTotalValueBySource(const std::vector<SimulationEvent>& events, const std::string& source)
 {
-    // Use std::accumulate to sum .value fields for events with matching source
     return std::accumulate(events.begin(), events.end(), 0.0,
-        [&sourceToMatch](double sum, const SimulationEvent& ev) {
-            return sum + (ev.source == sourceToMatch ? ev.value : 0.0);
-        });
+        [&source](double sum, const SimulationEvent& event)
+        {
+            return sum + (event.source == source ? event.value : 0.0);
+        }
+    );//accuulte()'s 4th argument need to be a bool operation
 }
 
 //5. Find the First Event After a Time Threshold
