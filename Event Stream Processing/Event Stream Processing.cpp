@@ -62,6 +62,13 @@ void PrintEvents(const std::vector<SimulationEvent>& events)
 
 // ** TASKS **
 //1. Sort Events by Timestamp
+std::vector<SimulationEvent> SortByTimeAndReturnACopy(const std::vector<SimulationEvent>& events)
+{
+    std::vector<SimulationEvent> sortedByTime{ events };
+    std::ranges::sort(sortedByTime, {}, &SimulationEvent::timestampSec);
+    return sortedByTime;
+}
+
 void SortEventsByTime(std::vector<SimulationEvent>& events)// Key STL concept: sort with a projection.
 {
     std::cout << "SortEventsByTime, in-place" << "\n";
@@ -103,6 +110,17 @@ void SortEventsByTime(const std::vector<SimulationEvent>& events, bool isAscendi
 
 
 //2. Filter Events by Type
+std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& events, EventType type)
+{
+    std::vector<SimulationEvent> filteredEvents{ events };
+    std::ranges::copy_if(events, std::back_inserter(filteredEvents),
+        [type](const SimulationEvent& event)//always const xxx& x, if we don't want to change the input
+        {
+            return type == event.type;
+        }
+    );
+}
+
 std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& events, EventType typeToFilter)
 {
     std::cout << "FilterByType" << "\n";
@@ -136,8 +154,25 @@ std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& ev
 //Return a std::unordered_map<std::string, std::vector<SimulationEvent>> where each key is the source name.
 std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(const std::vector<SimulationEvent>& events)
 {
+    std::unordered_map<std::string, std::vector<SimulationEvent>> grouped{};
+
+    for (const SimulationEvent& event : events)
+    {
+        grouped[event.source].push_back(event);//would this make a new key pair if have not seen it before?
+    }
+    return grouped;
+    //{
+    //{"sources", [event0, event2]}, 
+    //{"source1", [event1, event4]},
+    //...
+    //}
+}
+
+std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(const std::vector<SimulationEvent>& events)
+{
+    //pre. translate into a hashmap
     //1. loop through, 
-    //2. add into Grouped in order
+    //2. add into Grouped by it's source
     std::unordered_map<std::string, std::vector<SimulationEvent>> GroupedBySource{};//{ key: "source", value: {event0, event1, event2 }
     for (const SimulationEvent& event : events)
     {
@@ -149,6 +184,30 @@ std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(cons
 // A map from string (source) to vector of events is the natural structure.
 
 //4. Compute Total Value for a Given Source, Return the sum of.value for a specific source.
+double AcumulateTotalBySource(const std::vector<SimulationEvent>& events, const std::string& source)
+{
+    return std::accumulate(
+        events.begin(), events.end(), 0.0,
+        [&source](double sum, const SimulationEvent& event)
+        {
+            return sum + (event.source == source ? event.value : 0.0);
+        }
+    );
+}
+
+double AccumalateValueBySource(const std::vector<SimulationEvent>& events, const std::string& source)
+{
+    return std::accumulate(events.begin(), events.end(), 0.0,//start with the return?? is this the only way to write?
+        [&source](double sum, const SimulationEvent& event)//You MUST follow the signature that accumulate(): (accumulated_value, current_element)
+            { 
+                return sum + (event.source == source ? event.value : 0.0);//does the lamdbda HAVE to be in this format??
+                //=> YES, in the case of this lambda's parameters 
+                //the body of lamdbda tells the acumulate() HOW to combine them
+                //MUST return the updated accumulator.
+            }
+        );//how can I conceptualize it? so hard to memerize the syntax, for the lambda, what is the thought process behind the syntax?
+}
+
 double ComputeTotalValueBySource(const std::vector<SimulationEvent>& events, const std::string& source)
 {
     return std::accumulate(events.begin(), events.end(), 0.0,
