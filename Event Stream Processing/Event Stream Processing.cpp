@@ -265,15 +265,23 @@ double ComputeTotalValueBySource(const std::vector<SimulationEvent>& events, con
 
 //5. Find the First Event After a Time Threshold
 //Return a pointer to the first event after a given timestamp(or nullptr if none found).
-const SimulationEvent* FirstEventAfter(const std::vector<SimulationEvent>& events, const double& thresholdTime)
+const SimulationEvent* FirstEventAfter(const std::vector<SimulationEvent>& events, const double& thresholdTime)//const SimulationEvent* return a pointer to the event, but I never seen this syntax before, is this regular?
+//returning a pointer to a 'const SimulationEvent', the caller can read, but can not mutate, AKA returning a read only pointer; plus, can return a nullptr if no valid object exits
 {
-    auto it = std::ranges::find_if(events,
-                [&thresholdTime](const SimulationEvent& event)
+    auto it = std::ranges::find_if(events,//find more info on find_if() basics, argument types, lambda requirments, qurik etc
+        //=> (range, unary predicate), returns a iterator, returns .end() if not found
+                [&thresholdTime](const SimulationEvent& event)//HAVE TO BE: take one argument(element matches container's type), and return a bool
                 {
-                    return event.timestampSec > thresholdTime;
+                    return event.timestampSec > thresholdTime;//true for the matching case
                 });
 
-    return (it != events.end()) ? &(*it) : nullptr;
+    return (it != events.end()) ? &(*it) : nullptr;//why compare to the last iterator? 
+    // => MUST check valid before access it, .end() indicate invaild found
+    //what is this??&(*it)
+    // => *it: dereference it to get the actual event
+    // &(): get the address of the event; AKA, a pointer
+    // NOTE: I have the wrong Conception that a literator is a pointer
+    // => A pointer is a kind of iterator, but not all iterators are pointers. => a iterator is a pointer with some logics built in; some cannot just be dereferenced
 }
 
 const SimulationEvent* FirstEventAfter(
@@ -387,3 +395,82 @@ int main()
 //* **C++ Application * *: Kalman filters, sensor fusion, error analysis.
 
 
+//** MORE TASKS **
+
+//## * *2. Flight Data Aggregation * *
+//
+//```cpp
+//struct FlightDataPoint {
+//    double timestamp;     // seconds
+//    double altitude;      // meters
+//    double velocity;      // m/s
+//    double engineThrust;  // Newtons
+//};
+//
+//// TASKS:
+//// 1. Compute max, min, and mean altitude
+//// 2. Segment data into 10-second intervals and compute average velocity per segment
+//// 3. Detect all timestamps where velocity drops below 30 m/s (stall warning)
+//```
+//
+//-- -
+//
+//## * *3. Signal Synchronization * *
+//
+//```cpp
+//struct SensorSample {
+//    double timestamp;  // seconds
+//    double value;      // sensor reading
+//};
+//
+//// Two input streams, sorted by timestamp
+//std::vector<SensorSample> gpsSamples;
+//std::vector<SensorSample> imuSamples;
+//
+//// TASKS:
+//// 1. Merge the two streams chronologically
+//// 2. Interpolate missing timestamps in gpsSamples to match imuSamples
+//// 3. Identify timestamps where the delta between two sensor values exceeds 1.0
+//```
+//
+//-- -
+//
+//## * *4. Simulation Model Output Comparison * *
+//
+//```cpp
+//struct SimulationState {
+//    double timestamp;
+//    double positionX;
+//    double velocityY;
+//    double temperature;
+//};
+//
+//// Two simulations producing output over time
+//std::vector<SimulationState> simA;
+//std::vector<SimulationState> simB;
+//
+//// TASKS:
+//// 1. Find all timestamps where |A - B| > threshold for any field
+//// 2. Compute RMSE for each field across all matching timestamps
+//// 3. Return a report of timestamps and fields with large deviations
+//```
+//
+//-- -
+//
+//## * *5. Discrete Time - Step Simulator * *
+//
+//```cpp
+//struct PhysicsState {
+//    double timestamp;
+//    double velocity;
+//    double acceleration;
+//};
+//
+//// A constant time step and initial state vector
+//double timeStep = 0.1; // seconds
+//std::vector<PhysicsState> states;
+//
+//// TASKS:
+//// 1. Apply: newVelocity = velocity + acceleration * timeStep
+//// 2. Append updated states to newStates vector
+//// 3. Track total kinetic energy and return it
