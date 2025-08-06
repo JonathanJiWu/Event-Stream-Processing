@@ -122,6 +122,31 @@ void SortEventsByTime(const std::vector<SimulationEvent>& events, bool isAscendi
 
 
 //2. Filter Events by Source & Type
+std::vector<SimulationEvent> Filter(const std::vector<SimulationEvent>& events, const EventType& type)
+{
+    std::vector<SimulationEvent> filtered{};
+
+    for (auto& event : events)
+    {
+        if (event.type == type) { filtered.push_back(event); }
+    }
+    return filtered;
+}
+
+std::vector<SimulationEvent> Filter(const std::vector<SimulationEvent>& events, const std::string& source)//with std::ranges algo
+{
+    std::vector<SimulationEvent> filtered{};
+
+    std::ranges::copy_if(events, std::back_inserter(filtered),
+        [&source](const SimulationEvent& event)
+        {
+            return source == event.source;
+        });
+
+    return filtered;
+}
+
+
 std::vector<SimulationEvent> FliterBySource(const std::vector<SimulationEvent>& events, const std::string& source)
 {
     std::vector<SimulationEvent> filtered{ events };
@@ -136,7 +161,7 @@ std::vector<SimulationEvent> FliterBySource(const std::vector<SimulationEvent>& 
 
 std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& events, const EventType& type)
 {
-    std::vector<SimulationEvent> filteredEvents{ events };
+    std::vector<SimulationEvent> filteredEvents{ };
     std::ranges::copy_if(events, std::back_inserter(filteredEvents),
         [type](const SimulationEvent& event)//always const xxx& x, if we don't want to change the input
         {
@@ -220,10 +245,21 @@ std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(cons
 // A map from string (source) to vector of events is the natural structure.
 
 //4. Compute Total Value for a Given Source, Return the sum of.value for a specific source.
+double Acumulate(const std::vector<SimulationEvent>& events, const std::string& source)
+{
+    return std::accumulate(events.begin(), events.end(), 0.0,
+        [&source](double sum, const SimulationEvent& event)
+        {
+            return sum + (event.source == source ? event.value : 0.0);
+        });
+}
+
 double AcumulatebySource(const std::vector<SimulationEvent>& events, const EventType& type)
 {
     return std::accumulate(events.begin(), events.end(), 0.0,
         [&type](double sum, const SimulationEvent& event)//what is the rule comes to the const XXX& parameter in a lambda function? => same with normal function: 1. non-trival to copy. 2. don't wish to mutate original
+        //why not const double& xx => avoid pointer-indriection, compiler can make it pass-by-register(by value but do not involve copying, CPU's register can just store the double and other primare types),
+        //which is cheaper than passing by reference; because passing by reference still need to pass the pointer); pass-by-register is 0-1 cpu cycles(no memory lookup), pass-by-reference takes 1-4 cycles
         {
             return sum + (type == event.type ? event.value : 0.0);//why do we have to return for the second time? => this lambda return's a value to the std::acumulate() at each step(with a new sum each time for the algo)
         });
@@ -231,8 +267,7 @@ double AcumulatebySource(const std::vector<SimulationEvent>& events, const Event
 
 double AcumulateTotalBySource(const std::vector<SimulationEvent>& events, const std::string& source)
 {
-    return std::accumulate(
-        events.begin(), events.end(), 0.0,
+    return std::accumulate(events.begin(), events.end(), 0.0,
         [&source](double sum, const SimulationEvent& event)
         {
             return sum + (event.source == source ? event.value : 0.0);
@@ -265,7 +300,19 @@ double ComputeTotalValueBySource(const std::vector<SimulationEvent>& events, con
 
 //5. Find the First Event After a Time Threshold
 //Return a pointer to the first event after a given timestamp(or nullptr if none found).
-const SimulationEvent* FirstEventAfter(const std::vector<SimulationEvent>& events, const double& thresholdTime)//const SimulationEvent* return a pointer to the event, but I never seen this syntax before, is this regular?
+const SimulationEvent* FirstEvent(const std::vector<SimulationEvent>& events, double time)
+{
+    auto iterator = std::ranges::find_if(events,
+        [&time](const SimulationEvent& event)
+        {
+            return event.timestampSec > time;
+        });
+
+    //return iterator != events.end() ? &(*iterator) : nullptr;
+    return iterator != events.end() ? std::to_address(iterator) : nullptr;
+}
+
+const SimulationEvent* FirstEventAfter(const std::vector<SimulationEvent>& events, double thresholdTime)//const SimulationEvent* return a pointer to the event, but I never seen this syntax before, is this regular?
 //returning a pointer to a 'const SimulationEvent', the caller can read, but can not mutate, AKA returning a read only pointer; plus, can return a nullptr if no valid object exits
 {
     auto it = std::ranges::find_if(events,//find more info on find_if() basics, argument types, lambda requirments, qurik etc
