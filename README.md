@@ -40,7 +40,7 @@ This project demonstrates event stream processing in a flight simulation context
 - `nasa.ttf`: Font file (optional).
 
 ## Example Event
-Timestamp: 5.0, Type: ACTUATOR_COMMAND, Source: flaps, Value: 15.0
+    Timestamp: 5.0, Type: ACTUATOR_COMMAND, Source: flaps, Value: 15.0
 
 ## Troubleshooting
 - If you see font errors, ensure `nasa.ttf` is present or Raylib's default font is used.
@@ -52,3 +52,4 @@ This project is for educational/demo purposes. Raylib is licensed under zlib/lib
 ## References
 - [Raylib](https://www.raylib.com/)
 - [C++20 STL Algorithms](https://en.cppreference.com/w/cpp/algorithm/ranges)
+
