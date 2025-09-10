@@ -18,6 +18,11 @@
 #include <numeric>   // for std::accumulate
 #include <functional>
 
+extern "C" 
+{
+#include "raylib.h"
+}
+
 enum class EventType 
 {
     SENSOR_READING,
@@ -60,6 +65,7 @@ void PrintEvents(const std::vector<SimulationEvent>& events)
     std::cout << std::endl << "----------------------------------------" << std::endl;
 }
 
+
 // ** TASKS **
 //1. Sort Events by Timestamp
 std::vector<SimulationEvent> SortByTime(const std::vector<SimulationEvent>& events)
@@ -70,7 +76,6 @@ std::vector<SimulationEvent> SortByTime(const std::vector<SimulationEvent>& even
     std::ranges::sort(sorted, {}, &SimulationEvent::timestampSec);//and why are we using memeber pointer here? what are the underlying reason? what  are the rule of thumb for using memeber pointer as arguments? 
     // => projection argument( how to extract a key from each element in the range): underneath is a pointer to member, so for each element in the range(each event), the projection access the members like this: | event.*(&SimulationEvent::timestampSec) |
     // => is to say: "sort by this field"
-
     return sorted;
 }
 
@@ -122,54 +127,6 @@ void SortEventsByTime(const std::vector<SimulationEvent>& events, bool isAscendi
 
 
 //2. Filter Events by Source & Type
-std::vector<SimulationEvent> Filter(const std::vector<SimulationEvent>& events, const EventType& type)
-{
-    std::vector<SimulationEvent> filtered{};
-
-    for (auto& event : events)
-    {
-        if (event.type == type) { filtered.push_back(event); }
-    }
-    return filtered;
-}
-
-std::vector<SimulationEvent> Filter(const std::vector<SimulationEvent>& events, const std::string& source)//with std::ranges algo
-{
-    std::vector<SimulationEvent> filtered{};
-
-    std::ranges::copy_if(events, std::back_inserter(filtered),
-        [&source](const SimulationEvent& event)
-        {
-            return source == event.source;
-        });
-
-    return filtered;
-}
-
-
-std::vector<SimulationEvent> FliterBySource(const std::vector<SimulationEvent>& events, const std::string& source)
-{
-    std::vector<SimulationEvent> filtered{ events };
-
-    std::ranges::copy_if(events, std::back_inserter(filtered),
-        [&source](const SimulationEvent& event)
-        {
-            return source == event.source;
-        });
-    return filtered;
-}
-
-std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& events, const EventType& type)
-{
-    std::vector<SimulationEvent> filteredEvents{ };
-    std::ranges::copy_if(events, std::back_inserter(filteredEvents),
-        [type](const SimulationEvent& event)//always const xxx& x, if we don't want to change the input
-        {
-            return type == event.type;
-        }
-    );
-}
-
 std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& events, EventType typeToFilter)
 {
     std::cout << "FilterByType" << "\n";
@@ -181,7 +138,7 @@ std::vector<SimulationEvent> FilterByType(const std::vector<SimulationEvent>& ev
         events, 
         std::back_inserter(filtered), //(source, output, predicate), predicate is a lambda, a condition
         [typeToFilter](const SimulationEvent& ev)//have to capture the value of typeToFilter because lambda are saperate scope like a differernt function, not a normal codeblock; Copy elements from events into filtered
-        {
+        {//always const xxx& x, if we don't want to change the input
             return ev.type == typeToFilter; // but only if their type == typeToFilter.
         }
     );//last arg: lambda predicate; captures typeToFilter by value
@@ -229,7 +186,7 @@ std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(cons
     //}
 }
 
-std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySource(const std::vector<SimulationEvent>& events)
+std::unordered_map<std::string, std::vector<SimulationEvent>> GroupBySources(const std::vector<SimulationEvent>& events)
 {
     //pre. translate into a hashmap
     //1. loop through, 
@@ -331,7 +288,7 @@ const SimulationEvent* FirstEventAfter(const std::vector<SimulationEvent>& event
     // => A pointer is a kind of iterator, but not all iterators are pointers. => a iterator is a pointer with some logics built in; some cannot just be dereferenced
 }
 
-const SimulationEvent* FirstEventAfter(
+const SimulationEvent* FirstEventAfterThis(
     const std::vector<SimulationEvent>& events,
     double thresholdTime)
 {
@@ -345,6 +302,48 @@ const SimulationEvent* FirstEventAfter(
     return (it != events.end()) ? &(*it) : nullptr;
 }
 
+std::string EventTypeToString(EventType type) {
+    switch (type) {
+    case EventType::SENSOR_READING: return "SENSOR_READING";
+    case EventType::CONTROL_INPUT: return "CONTROL_INPUT";
+    case EventType::ACTUATOR_COMMAND: return "ACTUATOR_COMMAND";
+    default: return "UNKNOWN";
+    }
+}
+
+void DrawEventLog(const std::vector<std::string>& logs, int x, int y, int lineHeight, Font font) {
+    int line = 0;
+    for (const auto& log : logs) {
+        DrawTextEx(font, log.c_str(), { (float)x, (float)(y + line * lineHeight) }, 18, 1, LIGHTGRAY);
+        line++;
+        if (y + line * lineHeight > GetScreenHeight() - 20) break;
+    }
+}
+
+// --- Helper to format events for log ---
+std::vector<std::string> FormatEvents(const std::vector<SimulationEvent>& events) {
+    std::vector<std::string> logs;
+    for (const auto& event : events) {
+        logs.push_back("T: " + std::to_string(event.timestampSec) +
+            " | " + EventTypeToString(event.type) +
+            " | " + event.source +
+            " | " + std::to_string(event.value));
+    }
+    return logs;
+}
+
+// --- Raylib Button Helper ---
+bool Button(int x, int y, int w, int h, const char* text, Font font) {
+    Rectangle rect{ (float)x, (float)y, (float)w, (float)h };
+    bool hovered = CheckCollisionPointRec(GetMousePosition(), rect);
+    Color color = hovered ? DARKGRAY : GRAY;
+    DrawRectangleRec(rect, color);
+    DrawRectangleLines(x, y, w, h, WHITE);
+    Vector2 textSize = MeasureTextEx(font, text, 18, 1);
+    DrawTextEx(font, text, { x + (w - textSize.x) / 2, y + (h - textSize.y) / 2 }, 18, 1, WHITE);
+    return hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+}
+
 int main()
 {
 	SimulationEvent event;
@@ -352,11 +351,116 @@ int main()
     event.ConstructMockingSimulationEventVector(events);
 	PrintEvents(events);
 
-	//SortEventsByTime(events, false);
-	//SortEventsByTime(events);
-	//FilterByType(events, EventType::SENSOR_READING);    
-    //SortByTime(events);
     std::cout << "Hello Simulated World!\n";
+
+
+    // --- Raylib Window Setup ---
+    const int screenWidth = 1000;
+    const int screenHeight = 700;
+    InitWindow(screenWidth, screenHeight, "Event Stream Processing - Raylib Log Demo");
+
+    // Load NASA font (use a monospaced font as placeholder, e.g., "nasa.ttf" in project directory)
+    Font nasaFont = LoadFont("nasa.ttf"); // Place a NASA-style font file in your project directory
+    if (nasaFont.texture.id == 0) nasaFont = GetFontDefault();
+
+    SetTargetFPS(60);
+
+    std::vector<std::string> eventLog = FormatEvents(events);
+    std::string lastAction = "Initial event log.";
+
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+        ClearBackground(BLACK);
+
+        DrawTextEx(nasaFont, "Simulation Event Log", { 20, 20 }, 28, 1, YELLOW);
+
+        // --- Buttons ---
+        int bx = 20, by = 60, bw = 220, bh = 32, gap = 8;
+        int buttonY = by;
+        if (Button(bx, buttonY, bw, bh, "Sort By Time (Asc)", nasaFont)) {
+            auto sorted = SortByTime(events);
+            eventLog = FormatEvents(sorted);
+            lastAction = "Sorted by time ascending.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Sort By Time (Desc)", nasaFont)) {
+            auto sorted = events;
+            std::ranges::sort(sorted, std::greater<double>(), &SimulationEvent::timestampSec);
+            eventLog = FormatEvents(sorted);
+            lastAction = "Sorted by time descending.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Filter: SENSOR_READING", nasaFont)) {
+            auto filtered = FilterByType(events, EventType::SENSOR_READING);
+            eventLog = FormatEvents(filtered);
+            lastAction = "Filtered SENSOR_READING.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Filter: CONTROL_INPUT", nasaFont)) {
+            auto filtered = FilterByType(events, EventType::CONTROL_INPUT);
+            eventLog = FormatEvents(filtered);
+            lastAction = "Filtered CONTROL_INPUT.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Filter: ACTUATOR_COMMAND", nasaFont)) {
+            auto filtered = FilterByType(events, EventType::ACTUATOR_COMMAND);
+            eventLog = FormatEvents(filtered);
+            lastAction = "Filtered ACTUATOR_COMMAND.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Group By Source", nasaFont)) {
+            auto grouped = GroupBySource(events);
+            eventLog.clear();
+            for (const auto& [src, evs] : grouped) {
+                eventLog.push_back("Source: " + src);
+                for (const auto& e : evs) {
+                    eventLog.push_back("  T: " + std::to_string(e.timestampSec) +
+                        " | " + EventTypeToString(e.type) +
+                        " | " + std::to_string(e.value));
+                }
+            }
+            lastAction = "Grouped by source.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Total Value: engine1", nasaFont)) {
+            double total = ComputeTotalValueBySource(events, "engine1");
+            eventLog = { "Total value for engine1: " + std::to_string(total) };
+            lastAction = "Computed total value for engine1.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "First Event After 5s", nasaFont)) {
+            auto ptr = FirstEventAfter(events, 5.0);
+            eventLog.clear();
+            if (ptr) {
+                eventLog.push_back("First event after 5s:");
+                eventLog.push_back("T: " + std::to_string(ptr->timestampSec) +
+                    " | " + EventTypeToString(ptr->type) +
+                    " | " + ptr->source +
+                    " | " + std::to_string(ptr->value));
+            }
+            else {
+                eventLog.push_back("No event found after 5s.");
+            }
+            lastAction = "Found first event after 5s.";
+        }
+        buttonY += bh + gap;
+        if (Button(bx, buttonY, bw, bh, "Reset Log", nasaFont)) {
+            eventLog = FormatEvents(events);
+            lastAction = "Reset to initial event log.";
+        }
+
+        // --- Log Output ---
+        //DrawTextEx(nasaFont, ("Last Action: " + lastAction).c_str(), { bx + bw + 40, 60 }, 20, 1, GREEN);
+        DrawTextEx(nasaFont, ("Last Action: " + lastAction).c_str(), { static_cast<float>(bx + bw + 40), 60.0f }, 20, 1, GREEN);
+        DrawEventLog(eventLog, bx + bw + 40, 100, 24, nasaFont);
+
+        EndDrawing();
+    }
+
+    UnloadFont(nasaFont);
+    CloseWindow();
+    return 0;
 }
 
 //Tips for Success:
